@@ -1,9 +1,8 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from flask_socketio import SocketIO, emit
-from models import db, User, Message, Status
+from models import db, User, Message
 from datetime import datetime
 import bcrypt
-import json
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'whatsapp-clone-secret-key-2024'
@@ -11,7 +10,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 online_users = {}
 typing_users = {}
@@ -50,12 +49,11 @@ def register():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        full_name = request.form.get('full_name', '')
         if User.query.filter_by(username=username).first():
             flash('❌ Username exists!', 'error')
         else:
             hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-            new_user = User(username=username, password=hashed, full_name=full_name)
+            new_user = User(username=username, password=hashed)
             db.session.add(new_user)
             db.session.commit()
             flash('✅ Account created! Login now.', 'success')
@@ -80,102 +78,47 @@ def logout():
     flash('Logged out', 'success')
     return redirect(url_for('login'))
 
-@app.route('/api/search_users')
+@app.route('/api/search')
 def search_users():
     if 'username' not in session:
         return jsonify([])
-    query = request.args.get('q', '')
+    query = request.args.get('q', '').strip()
+    if not query:
+        return jsonify([])
     users = User.query.filter(
         User.username != session['username'],
         User.username.contains(query)
     ).limit(20).all()
     return jsonify([{
         'username': u.username,
-        'full_name': u.full_name,
-        'profile_pic': u.profile_pic,
         'is_online': u.is_online,
         'last_seen': u.last_seen.strftime('%H:%M') if u.last_seen else 'offline'
     } for u in users])
 
-@app.route('/api/get_contacts')
+@app.route('/api/contacts')
 def get_contacts():
     if 'username' not in session:
         return jsonify([])
     # Get users who have chatted with current user
-    messages = Message.query.filter(
-        (Message.sender == session['username']) | (Message.receiver == session['username'])
-    ).all()
+    sent = Message.query.filter_by(sender=session['username']).all()
+    received = Message.query.filter_by(receiver=session['username']).all()
     contact_usernames = set()
-    for msg in messages:
-        if msg.sender != session['username']:
-            contact_usernames.add(msg.sender)
-        if msg.receiver != session['username']:
-            contact_usernames.add(msg.receiver)
+    for msg in sent:
+        contact_usernames.add(msg.receiver)
+    for msg in received:
+        contact_usernames.add(msg.sender)
     
     contacts = User.query.filter(User.username.in_(contact_usernames)).all()
+    # Add users who are online but no chat yet
+    for user in User.query.filter(User.username != session['username']).all():
+        if user.username not in contact_usernames and user.is_online:
+            contacts.append(user)
+    
     return jsonify([{
-        'username': u.username,
-        'full_name': u.full_name,
-        'profile_pic': u.profile_pic,
-        'is_online': u.is_online,
-        'last_seen': u.last_seen.strftime('%H:%M') if u.last_seen else 'offline'
-    } for u in contacts])
-
-@app.route('/api/update_profile', methods=['POST'])
-def update_profile():
-    if 'username' not in session:
-        return jsonify({'error': 'Unauthorized'})
-    user = User.query.filter_by(username=session['username']).first()
-    data = request.json
-    if 'full_name' in data:
-        user.full_name = data['full_name']
-    if 'bio' in data:
-        user.bio = data['bio']
-    if 'profile_pic' in data:
-        user.profile_pic = data['profile_pic']
-    db.session.commit()
-    return jsonify({'success': True})
-
-@app.route('/api/post_status', methods=['POST'])
-def post_status():
-    if 'username' not in session:
-        return jsonify({'error': 'Unauthorized'})
-    data = request.json
-    status = Status(
-        username=session['username'],
-        content=data['content'],
-        content_type=data.get('content_type', 'text')
-    )
-    db.session.add(status)
-    db.session.commit()
-    return jsonify({'success': True})
-
-@app.route('/api/get_statuses')
-def get_statuses():
-    if 'username' not in session:
-        return jsonify([])
-    statuses = Status.query.filter(
-        Status.expires_at > datetime.now()
-    ).order_by(Status.created_at.desc()).all()
-    return jsonify([{
-        'username': s.username,
-        'content': s.content,
-        'content_type': s.content_type,
-        'time_ago': s.created_at.strftime('%H:%M')
-    } for s in statuses])
-
-@app.route('/api/view_status/<int:status_id>', methods=['POST'])
-def view_status(status_id):
-    if 'username' not in session:
-        return jsonify({'error': 'Unauthorized'})
-    status = Status.query.get(status_id)
-    if status:
-        views = json.loads(status.views)
-        if session['username'] not in views:
-            views.append(session['username'])
-            status.views = json.dumps(views)
-            db.session.commit()
-    return jsonify({'success': True})
+        'username': c.username,
+        'is_online': c.is_online,
+        'last_seen': c.last_seen.strftime('%H:%M') if c.last_seen else 'offline'
+    } for c in contacts])
 
 @socketio.on('connect')
 def handle_connect():
@@ -186,7 +129,8 @@ def handle_connect():
             user.is_online = True
             user.last_seen = datetime.now()
             db.session.commit()
-        emit('user_online', {'username': session['username']}, broadcast=True)
+        emit('user_status', {'username': session['username'], 'is_online': True, 'last_seen': 'Online'}, broadcast=True)
+        print(f'✅ {session["username"]} connected')
 
 @socketio.on('disconnect')
 def handle_disconnect():
@@ -198,28 +142,25 @@ def handle_disconnect():
             user.is_online = False
             user.last_seen = datetime.now()
             db.session.commit()
-        emit('user_offline', {'username': session['username'], 'last_seen': datetime.now().strftime('%H:%M')}, broadcast=True)
+        emit('user_status', {'username': session['username'], 'is_online': False, 'last_seen': user.last_seen.strftime('%H:%M') if user else 'offline'}, broadcast=True)
+        print(f'❌ {session["username"]} disconnected')
 
-@socketio.on('search_users')
-def handle_search_users(data):
-    if 'username' not in session:
-        return
-    query = data.get('query', '')
-    users = User.query.filter(
-        User.username != session['username'],
-        User.username.contains(query)
-    ).limit(20).all()
-    emit('search_results', [{
-        'username': u.username,
-        'full_name': u.full_name,
-        'profile_pic': u.profile_pic,
-        'is_online': u.is_online
-    } for u in users])
+@socketio.on('get_online_users')
+def handle_get_online_users():
+    if 'username' in session:
+        users = User.query.filter(User.username != session['username']).all()
+        emit('users_list', [{
+            'username': u.username,
+            'is_online': u.is_online,
+            'last_seen': u.last_seen.strftime('%H:%M') if u.last_seen else 'offline'
+        } for u in users])
 
 @socketio.on('private_message')
 def handle_private_message(data):
     if 'username' not in session:
         return
+    
+    # Save message to database
     msg = Message(
         sender=session['username'],
         receiver=data['to'],
@@ -229,30 +170,32 @@ def handle_private_message(data):
     db.session.add(msg)
     db.session.commit()
     
+    # Mark as delivered
+    msg.delivered = True
+    db.session.commit()
+    
+    # Send to receiver if online
     if data['to'] in online_users:
         emit('receive_message', {
             'from': session['username'],
             'message': data['message'],
             'timestamp': datetime.now().strftime('%I:%M %p'),
-            'message_id': msg.id
+            'message_id': msg.id,
+            'delivered': True
         }, room=online_users[data['to']])
-    
-    emit('message_sent', {
-        'to': data['to'],
-        'message': data['message'],
-        'timestamp': datetime.now().strftime('%I:%M %p'),
-        'message_id': msg.id
-    })
-
-@socketio.on('typing')
-def handle_typing(data):
-    if 'username' in session and data['to'] in online_users:
-        emit('user_typing', {'from': session['username']}, room=online_users[data['to']])
-
-@socketio.on('typing_stop')
-def handle_typing_stop(data):
-    if 'username' in session and data['to'] in online_users:
-        emit('user_stop_typing', {'from': session['username']}, room=online_users[data['to']])
+        
+        # Send delivery confirmation to sender
+        emit('message_delivered', {
+            'to': data['to'],
+            'message_id': msg.id
+        })
+    else:
+        # Send delivery failed (user offline)
+        emit('message_delivered', {
+            'to': data['to'],
+            'message_id': msg.id,
+            'delivered': False
+        })
 
 @socketio.on('mark_read')
 def handle_mark_read(data):
@@ -262,8 +205,19 @@ def handle_mark_read(data):
     for msg in messages:
         msg.read = True
     db.session.commit()
+    
     if data['from'] in online_users:
         emit('messages_read', {'from': session['username']}, room=online_users[data['from']])
+
+@socketio.on('typing_start')
+def handle_typing_start(data):
+    if 'username' in session and data['to'] in online_users:
+        emit('user_typing', {'from': session['username']}, room=online_users[data['to']])
+
+@socketio.on('typing_stop')
+def handle_typing_stop(data):
+    if 'username' in session and data['to'] in online_users:
+        emit('user_stop_typing', {'from': session['username']}, room=online_users[data['to']])
 
 @socketio.on('get_history')
 def handle_get_history(data):
@@ -273,16 +227,18 @@ def handle_get_history(data):
         ((Message.sender == session['username']) & (Message.receiver == data['with'])) |
         ((Message.sender == data['with']) & (Message.receiver == session['username']))
     ).order_by(Message.timestamp).all()
-    history = [{
-        'sender': m.sender,
-        'message': m.message,
-        'timestamp': m.timestamp.strftime('%I:%M %p'),
-        'read': m.read,
-        'delivered': m.delivered
-    } for m in messages]
+    
+    history = []
+    for msg in messages:
+        history.append({
+            'sender': msg.sender,
+            'message': msg.message,
+            'timestamp': msg.timestamp.strftime('%I:%M %p'),
+            'read': msg.read if msg.receiver == session['username'] else True,
+            'delivered': msg.delivered
+        })
     emit('message_history', history)
 
 if __name__ == '__main__':
-    import os
-    port = int(os.environ.get('PORT', 5000))
-    socketio.run(app, host='0.0.0.0', port=port, debug=False)
+    print("🚀 WhatsApp Clone Running at http://127.0.0.1:5000")
+    socketio.run(app, debug=True, port=5000, allow_unsafe_werkzeug=True)
