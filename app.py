@@ -283,5 +283,4 @@ def handle_get_history(data):
     emit('message_history', history)
 
 if __name__ == '__main__':
-    print("🚀 WhatsApp Clone Server Running at http://127.0.0.1:5000")
     socketio.run(app, debug=True, port=5000)
