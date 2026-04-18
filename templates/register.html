@@ -1,37 +1,49 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Register · ChatApp</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <title>WhatsApp - Register</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#075E54 0%,#128C7E 100%);display:flex;align-items:center;justify-content:center;min-height:100vh;}
+        .auth-container{width:100%;max-width:450px;padding:20px;}
+        .auth-card{background:white;border-radius:40px;padding:50px 40px;box-shadow:0 25px 50px rgba(0,0,0,0.3);text-align:center;}
+        .logo{font-size:70px;color:#25D366;margin-bottom:20px;}
+        h1{font-size:28px;color:#075E54;margin-bottom:10px;}
+        .subtitle{color:#666;margin-bottom:30px;font-size:14px;}
+        .input-group{position:relative;margin-bottom:20px;}
+        .input-group i{position:absolute;left:18px;top:50%;transform:translateY(-50%);color:#999;font-size:18px;}
+        .input-group input{width:100%;padding:16px 18px 16px 52px;border:2px solid #e0e0e0;border-radius:60px;font-size:15px;transition:all 0.3s;}
+        .input-group input:focus{outline:none;border-color:#25D366;}
+        .btn-primary{width:100%;padding:16px;background:#25D366;color:white;border:none;border-radius:60px;font-size:16px;font-weight:600;cursor:pointer;}
+        .btn-primary:hover{background:#128C7E;}
+        .alert{padding:14px;border-radius:16px;margin-bottom:20px;font-size:13px;}
+        .alert-success{background:#d4edda;color:#155724;}
+        .alert-error{background:#f8d7da;color:#721c24;}
+        .auth-footer{text-align:center;margin-top:25px;color:#666;}
+        .auth-footer a{color:#25D366;text-decoration:none;font-weight:600;}
+    </style>
 </head>
-<body class="auth-page">
-    <div class="auth-container">
-        <div class="auth-card">
-            <div class="auth-header">
-                <i class="fab fa-whatsapp"></i>
-                <h2>Get Started</h2>
-                <p>Join the conversation</p>
-            </div>
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% for category, msg in messages %}
-                    <div class="alert alert-{{ category }}">{{ msg }}</div>
-                {% endfor %}
-            {% endwith %}
-            <form method="POST">
-                <div class="input-group">
-                    <i class="fas fa-user"></i>
-                    <input type="text" name="username" placeholder="Choose username" required>
-                </div>
-                <div class="input-group">
-                    <i class="fas fa-lock"></i>
-                    <input type="password" name="password" placeholder="Create password" required>
-                </div>
-                <button type="submit" class="btn-primary">Sign Up <i class="fas fa-rocket"></i></button>
-            </form>
-            <p class="auth-footer">Already have an account? <a href="{{ url_for('login') }}">Login</a></p>
-        </div>
+<body>
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="logo"><i class="fab fa-whatsapp"></i></div>
+        <h1>Create Account</h1>
+        <p class="subtitle">Join WhatsApp today</p>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, msg in messages %}
+                <div class="alert alert-{{ category }}">{{ msg }}</div>
+            {% endfor %}
+        {% endwith %}
+        <form method="POST">
+            <div class="input-group"><i class="fas fa-user"></i><input type="text" name="username" placeholder="Username" required autofocus></div>
+            <div class="input-group"><i class="fas fa-user-circle"></i><input type="text" name="full_name" placeholder="Full Name (optional)"></div>
+            <div class="input-group"><i class="fas fa-lock"></i><input type="password" name="password" placeholder="Password" required></div>
+            <button type="submit" class="btn-primary">Sign Up <i class="fas fa-rocket"></i></button>
+        </form>
+        <p class="auth-footer">Already have an account? <a href="/login">Login</a></p>
     </div>
+</div>
 </body>
 </html>
