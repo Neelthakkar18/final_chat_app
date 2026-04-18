@@ -7,165 +7,140 @@
     <style>
         *{margin:0;padding:0;box-sizing:border-box;}
         body{font-family:'Inter',sans-serif;background:#f0f2f5;}
-        
-        /* Main Container */
-        .whatsapp-container{display:flex;height:100vh;max-width:1400px;margin:0 auto;background:#fff;box-shadow:0 0 20px rgba(0,0,0,0.1);}
+        .app{display:flex;height:100vh;max-width:1400px;margin:0 auto;background:#fff;box-shadow:0 0 20px rgba(0,0,0,0.1);}
         
         /* Sidebar */
         .sidebar{width:380px;background:#f8f9fa;border-right:1px solid #e9ecef;display:flex;flex-direction:column;}
         .sidebar-header{background:#075E54;color:white;padding:20px;display:flex;justify-content:space-between;align-items:center;}
-        .sidebar-header h2{font-size:18px;font-weight:600;}
+        .sidebar-header h2{font-size:18px;}
         .header-icons{display:flex;gap:20px;}
         .header-icons i{font-size:20px;cursor:pointer;}
         
-        /* Profile Section */
-        .profile-section{background:#fff;padding:15px 20px;display:flex;align-items:center;gap:15px;border-bottom:1px solid #e9ecef;}
-        .profile-avatar{width:50px;height:50px;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;color:white;}
+        /* Profile */
+        .profile{padding:15px 20px;background:#fff;border-bottom:1px solid #e9ecef;display:flex;align-items:center;gap:15px;cursor:pointer;}
+        .avatar{width:50px;height:50px;background:linear-gradient(135deg,#075E54,#128C7E);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600;color:white;position:relative;}
+        .online-dot{position:absolute;bottom:2px;right:2px;width:12px;height:12px;background:#25D366;border-radius:50%;border:2px solid white;}
         .profile-info{flex:1;}
         .profile-name{font-weight:700;font-size:16px;}
-        .profile-bio{font-size:12px;color:#6c757d;}
-        .profile-actions{display:flex;gap:15px;}
-        .profile-actions i{font-size:20px;color:#6c757d;cursor:pointer;}
+        .profile-status{font-size:12px;color:#6c757d;}
         
-        /* Search Bar */
+        /* Search */
         .search-bar{padding:12px 16px;background:#fff;}
-        .search-box{background:#f0f2f5;border-radius:30px;padding:8px 16px;display:flex;align-items:center;gap:10px;}
+        .search-box{background:#f0f2f5;border-radius:30px;padding:10px 16px;display:flex;align-items:center;gap:10px;}
         .search-box i{color:#6c757d;}
         .search-box input{flex:1;border:none;background:transparent;outline:none;font-size:14px;}
+        .search-results{position:absolute;background:white;width:348px;z-index:100;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.15);margin-top:5px;display:none;}
+        .search-result-item{padding:12px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;border-bottom:1px solid #f0f2f5;}
+        .search-result-item:hover{background:#f5f6f8;}
         
-        /* Chats/Tabs */
-        .tabs{display:flex;background:#fff;border-bottom:1px solid #e9ecef;}
-        .tab{flex:1;text-align:center;padding:12px;cursor:pointer;color:#6c757d;font-weight:500;}
-        .tab.active{color:#075E54;border-bottom:2px solid #075E54;}
-        
-        /* Contacts/Status List */
+        /* Contacts */
         .contacts-list{flex:1;overflow-y:auto;}
-        .contact-item,.status-item{display:flex;align-items:center;gap:15px;padding:12px 16px;cursor:pointer;transition:background 0.2s;border-bottom:1px solid #f0f2f5;}
-        .contact-item:hover,.status-item:hover{background:#f5f6f8;}
-        .contact-item.active{background:#e8f0fe;}
-        .contact-avatar{width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;position:relative;}
-        .contact-avatar.status-ring{border:2px solid #25D366;padding:2px;}
-        .online-dot{position:absolute;bottom:2px;right:2px;width:12px;height:12px;background:#25D366;border-radius:50%;border:2px solid white;}
+        .contact{padding:12px 20px;display:flex;align-items:center;gap:15px;cursor:pointer;transition:background 0.2s;border-bottom:1px solid #f0f2f5;}
+        .contact:hover{background:#f5f6f8;}
+        .contact.active{background:#e8f0fe;}
         .contact-info{flex:1;}
         .contact-name{font-weight:600;font-size:15px;}
-        .contact-last-msg{font-size:12px;color:#6c757d;}
-        .contact-time{font-size:10px;color:#6c757d;}
+        .contact-status{font-size:12px;color:#6c757d;}
+        .contact-time{font-size:11px;color:#6c757d;}
         
         /* Chat Area */
-        .chat-area{flex:1;display:flex;flex-direction:column;background:#efeae2;}
+        .chat-area{flex:1;display:flex;flex-direction:column;display:none;}
         .chat-header{background:#075E54;color:white;padding:15px 20px;display:flex;align-items:center;gap:15px;}
-        .chat-contact-avatar{width:45px;height:45px;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;}
         .chat-contact-info{flex:1;}
-        .chat-contact-name{font-weight:600;}
+        .chat-contact-name{font-weight:600;font-size:16px;}
         .chat-contact-status{font-size:12px;opacity:0.8;}
         .chat-actions{display:flex;gap:20px;}
         .chat-actions i{font-size:20px;cursor:pointer;}
         
         /* Messages */
-        .messages-container{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:8px;}
+        .messages-container{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:8px;background:#efeae2;}
         .message{display:flex;max-width:65%;animation:fadeIn 0.2s;}
         .message.sent{align-self:flex-end;}
         .message.received{align-self:flex-start;}
-        .bubble{padding:10px 14px;border-radius:18px;position:relative;word-wrap:break-word;}
+        .bubble{padding:10px 14px;border-radius:18px;position:relative;}
         .sent .bubble{background:#dcf8c5;border-bottom-right-radius:4px;}
         .received .bubble{background:white;border-bottom-left-radius:4px;box-shadow:0 1px 2px rgba(0,0,0,0.1);}
         .msg-text{font-size:14px;}
         .msg-time{font-size:10px;color:#8e9aaf;margin-top:4px;display:flex;align-items:center;justify-content:flex-end;gap:4px;}
-        .sent .msg-time i{color:#34b7f1;font-size:12px;}
+        .msg-time i{font-size:10px;}
+        .sent .msg-time i.blue-tick{color:#34b7f1;}
         .message-name{font-size:11px;font-weight:600;color:#075E54;margin-bottom:4px;}
         
-        /* Typing Indicator */
+        /* Typing */
         .typing-indicator{padding:8px 20px;font-size:12px;color:#6c757d;display:flex;align-items:center;gap:8px;}
         .typing-dots span{width:6px;height:6px;background:#6c757d;border-radius:50%;display:inline-block;animation:typing 1.4s infinite;}
         .typing-dots span:nth-child(2){animation-delay:0.2s;}
         .typing-dots span:nth-child(3){animation-delay:0.4s;}
         @keyframes typing{0%,60%,100%{transform:translateY(0);opacity:0.4;}30%{transform:translateY(-4px);opacity:1;}}
         
-        /* Input Area */
-        .input-area{padding:15px 20px;background:#f0f2f5;display:flex;gap:12px;align-items:center;}
+        /* Input */
+        .input-area{padding:15px 20px;background:#f0f2f5;display:flex;gap:12px;}
         .input-area input{flex:1;padding:12px 18px;border:none;border-radius:30px;font-size:14px;outline:none;}
         .input-area button{width:45px;height:45px;border:none;border-radius:50%;cursor:pointer;font-size:18px;transition:transform 0.2s;}
         .emoji-btn{background:#fff;color:#6c757d;}
         .send-btn{background:#075E54;color:white;}
         .input-area button:hover{transform:scale(1.05);}
         
-        /* Status Modal */
+        /* Modal */
         .modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:1000;align-items:center;justify-content:center;}
         .modal-content{background:white;border-radius:20px;padding:30px;max-width:400px;width:90%;}
-        .status-view{position:relative;background:#000;border-radius:20px;padding:20px;min-height:400px;display:flex;flex-direction:column;align-items:center;justify-content:center;}
-        .status-view img,.status-view video{max-width:100%;max-height:500px;}
-        .status-text{color:white;font-size:24px;text-align:center;}
+        .modal-content h3{margin-bottom:20px;color:#075E54;}
+        .modal-content input{width:100%;padding:12px;margin:10px 0;border:1px solid #ddd;border-radius:10px;}
         
         @keyframes fadeIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
         ::-webkit-scrollbar{width:6px;}
         ::-webkit-scrollbar-track{background:#f1f1f1;}
         ::-webkit-scrollbar-thumb{background:#c1c1c1;border-radius:4px;}
-        
-        @media(max-width:768px){.sidebar{width:100px;}.sidebar .contact-info,.sidebar .profile-info{display:none;}}
     </style>
 </head>
 <body>
-<div class="whatsapp-container">
-    <!-- Sidebar -->
+<div class="app">
     <div class="sidebar">
         <div class="sidebar-header">
             <h2>WhatsApp</h2>
             <div class="header-icons">
-                <i class="fas fa-camera"></i>
                 <i class="fas fa-search" onclick="openSearchModal()"></i>
-                <i class="fas fa-ellipsis-v"></i>
+                <i class="fas fa-sign-out-alt" onclick="logout()" style="color:#ff6b6b;"></i>
             </div>
         </div>
         
-        <div class="profile-section">
-            <div class="profile-avatar" id="profileAvatar">{{ username[0]|upper }}</div>
+        <div class="profile" onclick="openProfileModal()">
+            <div class="avatar" id="profileAvatar">{{ username[0]|upper }}<div class="online-dot" id="profileOnlineDot"></div></div>
             <div class="profile-info">
                 <div class="profile-name" id="profileName">{{ username }}</div>
-                <div class="profile-bio" id="profileBio">Available</div>
-            </div>
-            <div class="profile-actions">
-                <i class="fas fa-edit" onclick="openProfileModal()"></i>
-                <i class="fas fa-sign-out-alt" onclick="logout()" style="color:#dc3545;"></i>
+                <div class="profile-status" id="profileStatus">Online</div>
             </div>
         </div>
         
         <div class="search-bar">
             <div class="search-box">
                 <i class="fas fa-search"></i>
-                <input type="text" id="searchInput" placeholder="Search or start new chat" onkeyup="searchUsers()">
+                <input type="text" id="searchInput" placeholder="Search users..." autocomplete="off">
             </div>
-        </div>
-        
-        <div class="tabs">
-            <div class="tab active" onclick="switchTab('chats')">Chats</div>
-            <div class="tab" onclick="switchTab('status')">Status</div>
-            <div class="tab" onclick="switchTab('calls')">Calls</div>
+            <div class="search-results" id="searchResults"></div>
         </div>
         
         <div class="contacts-list" id="contactsList">
-            <!-- Contacts will load here -->
             <div style="text-align:center;padding:40px;color:#999;">Loading chats...</div>
         </div>
     </div>
     
-    <!-- Chat Area -->
     <div class="chat-area" id="chatArea">
         <div class="chat-header">
-            <div class="chat-contact-avatar" id="chatAvatar">🤖</div>
+            <div class="avatar" id="chatAvatar">👤</div>
             <div class="chat-contact-info">
                 <div class="chat-contact-name" id="chatContactName">Select a chat</div>
                 <div class="chat-contact-status" id="chatContactStatus">Click to start messaging</div>
             </div>
             <div class="chat-actions">
-                <i class="fas fa-video"></i>
                 <i class="fas fa-phone"></i>
-                <i class="fas fa-ellipsis-v"></i>
+                <i class="fas fa-video"></i>
             </div>
         </div>
         
         <div class="messages-container" id="messages">
             <div style="text-align:center;padding:50px;color:#999;">
-                <i class="fas fa-comments" style="font-size:50px;margin-bottom:15px;display:block;"></i>
+                <i class="fas fa-comments" style="font-size:50px;margin-bottom:15px;"></i>
                 <p>Select a contact to start chatting</p>
             </div>
         </div>
@@ -180,213 +155,429 @@
     </div>
 </div>
 
-<!-- Profile Modal -->
-<div id="profileModal" class="modal">
-    <div class="modal-content">
-        <h3>Edit Profile</h3>
-        <input type="text" id="editFullName" placeholder="Full Name" style="width:100%;padding:10px;margin:10px 0;border-radius:10px;border:1px solid #ddd;">
-        <input type="text" id="editBio" placeholder="Bio" style="width:100%;padding:10px;margin:10px 0;border-radius:10px;border:1px solid #ddd;">
-        <select id="editProfilePic" style="width:100%;padding:10px;margin:10px 0;border-radius:10px;">
-            <option value="😀">😀 Smiley</option>
-            <option value="😎">😎 Cool</option>
-            <option value="❤️">❤️ Heart</option>
-            <option value="🔥">🔥 Fire</option>
-            <option value="🌟">🌟 Star</option>
-        </select>
-        <button onclick="updateProfile()" class="btn-primary" style="width:100%;padding:12px;">Save</button>
-        <button onclick="closeProfileModal()" style="width:100%;padding:12px;margin-top:10px;">Cancel</button>
-    </div>
-</div>
-
-<!-- Search Results Modal -->
-<div id="searchModal" class="modal">
-    <div class="modal-content">
-        <h3>Search Users</h3>
-        <input type="text" id="globalSearch" placeholder="Search by username..." style="width:100%;padding:10px;margin:10px 0;border-radius:10px;" onkeyup="globalSearch()">
-        <div id="searchResults"></div>
-        <button onclick="closeSearchModal()" style="width:100%;padding:12px;margin-top:10px;">Close</button>
-    </div>
-</div>
-
-<!-- Post Status Modal -->
-<div id="statusModal" class="modal">
-    <div class="modal-content">
-        <h3>Add Status</h3>
-        <input type="text" id="statusContent" placeholder="What's on your mind?" style="width:100%;padding:10px;margin:10px 0;border-radius:10px;">
-        <button onclick="postStatus()" class="btn-primary" style="width:100%;padding:12px;">Post Status</button>
-        <button onclick="closeStatusModal()" style="width:100%;padding:12px;margin-top:10px;">Cancel</button>
-    </div>
-</div>
-
 <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
 <script>
+// ============================================
+// GLOBAL VARIABLES
+// ============================================
 var username = "{{ username }}";
 var currentReceiver = null;
 var socket = io();
 var typingTimeout = null;
+var messageElements = {};
 
-// Socket Events
-socket.on('connect', function() { console.log('Connected'); loadContacts(); });
+// ============================================
+// SOCKET EVENTS
+// ============================================
+socket.on('connect', function() {
+    console.log('✅ Connected as:', username);
+    loadContacts();
+    loadOnlineUsers();
+});
+
+socket.on('users_list', function(users) {
+    updateContactsList(users);
+});
+
+socket.on('user_status', function(data) {
+    updateUserStatus(data.username, data.is_online, data.last_seen);
+    if (currentReceiver === data.username) {
+        updateChatStatus(data.is_online ? 'Online' : 'Last seen ' + data.last_seen);
+    }
+});
+
 socket.on('receive_message', function(data) {
     if (currentReceiver === data.from) {
         displayMessage(data.from, data.message, data.timestamp, false);
         scrollToBottom();
+        markMessagesAsRead(data.from);
     } else {
-        showNotification(data.from);
+        showNotificationBadge(data.from);
     }
     loadContacts();
+    playSound();
 });
+
+socket.on('message_delivered', function(data) {
+    updateMessageStatus(data.message_id, 'delivered');
+});
+
+socket.on('messages_read', function(data) {
+    updateAllMessagesRead(data.from);
+});
+
 socket.on('user_typing', function(data) {
     if (currentReceiver === data.from) {
-        document.getElementById('typingIndicator').innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div> ' + data.from + ' is typing...';
+        showTypingIndicator(data.from);
     }
 });
-socket.on('user_stop_typing', function() { document.getElementById('typingIndicator').innerHTML = ''; });
-socket.on('message_history', function(messages) {
-    document.getElementById('messages').innerHTML = '';
-    messages.forEach(function(msg) { displayMessage(msg.sender, msg.message, msg.timestamp, msg.sender === username); });
-    scrollToBottom();
+
+socket.on('user_stop_typing', function(data) {
+    if (currentReceiver === data.from) {
+        hideTypingIndicator();
+    }
 });
 
-// Load Contacts
+socket.on('message_history', function(messages) {
+    var container = document.getElementById('messages');
+    container.innerHTML = '';
+    if (messages.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:50px;color:#999;"><i class="fas fa-comment-dots" style="font-size:50px;"></i><p>No messages yet. Say hello!</p></div>';
+    } else {
+        messages.forEach(function(msg) {
+            displayMessage(msg.sender, msg.message, msg.timestamp, msg.sender === username, msg.read, msg.delivered);
+        });
+        scrollToBottom();
+    }
+});
+
+// ============================================
+// CONTACT & SEARCH FUNCTIONS
+// ============================================
 function loadContacts() {
-    fetch('/api/get_contacts').then(r => r.json()).then(contacts => {
-        var html = '';
-        contacts.forEach(c => {
-            html += `<div class="contact-item" onclick="selectUser('${c.username}')">
-                        <div class="contact-avatar">${c.profile_pic || c.username[0].toUpperCase()}
-                            ${c.is_online ? '<div class="online-dot"></div>' : ''}
+    fetch('/api/contacts')
+        .then(r => r.json())
+        .then(contacts => {
+            var container = document.getElementById('contactsList');
+            if (contacts.length === 0) {
+                container.innerHTML = '<div style="text-align:center;padding:40px;color:#999;"><i class="fas fa-users" style="font-size:40px;"></i><p>No contacts yet.<br>Search for users to start chatting!</p></div>';
+            } else {
+                var html = '';
+                contacts.forEach(c => {
+                    var statusText = c.is_online ? 'Online' : ('Last seen ' + c.last_seen);
+                    html += `
+                        <div class="contact" data-user="${c.username}" onclick="selectUser('${c.username}')">
+                            <div class="avatar">${c.username[0].toUpperCase()}${c.is_online ? '<div class="online-dot"></div>' : ''}</div>
+                            <div class="contact-info">
+                                <div class="contact-name">${escapeHtml(c.username)}</div>
+                                <div class="contact-status">${escapeHtml(statusText)}</div>
+                            </div>
                         </div>
-                        <div class="contact-info">
-                            <div class="contact-name">${c.full_name || c.username}</div>
-                            <div class="contact-last-msg">${c.is_online ? 'Online' : 'Last seen ' + c.last_seen}</div>
-                        </div>
-                    </div>`;
+                    `;
+                });
+                container.innerHTML = html;
+            }
         });
-        document.getElementById('contactsList').innerHTML = html || '<div style="text-align:center;padding:40px;">No chats yet. Search for users to start chatting!</div>';
-    });
 }
 
-// Search Users
+function loadOnlineUsers() {
+    socket.emit('get_online_users');
+}
+
+function updateContactsList(users) {
+    var container = document.getElementById('contactsList');
+    if (users.length === 0) return;
+    var html = '';
+    users.forEach(u => {
+        var statusText = u.is_online ? 'Online' : ('Last seen ' + u.last_seen);
+        html += `
+            <div class="contact" data-user="${u.username}" onclick="selectUser('${u.username}')">
+                <div class="avatar">${u.username[0].toUpperCase()}${u.is_online ? '<div class="online-dot"></div>' : ''}</div>
+                <div class="contact-info">
+                    <div class="contact-name">${escapeHtml(u.username)}</div>
+                    <div class="contact-status">${escapeHtml(statusText)}</div>
+                </div>
+            </div>
+        `;
+    });
+    container.innerHTML = html;
+}
+
 function searchUsers() {
-    var query = document.getElementById('searchInput').value;
-    if (query.length < 1) { loadContacts(); return; }
-    fetch('/api/search_users?q=' + query).then(r => r.json()).then(users => {
-        var html = '';
-        users.forEach(u => {
-            html += `<div class="contact-item" onclick="selectUser('${u.username}')">
-                        <div class="contact-avatar">${u.profile_pic || u.username[0].toUpperCase()}
-                            ${u.is_online ? '<div class="online-dot"></div>' : ''}
+    var query = document.getElementById('searchInput').value.trim();
+    var resultsDiv = document.getElementById('searchResults');
+    
+    if (query.length < 1) {
+        resultsDiv.style.display = 'none';
+        return;
+    }
+    
+    fetch('/api/search?q=' + encodeURIComponent(query))
+        .then(r => r.json())
+        .then(users => {
+            if (users.length === 0) {
+                resultsDiv.innerHTML = '<div style="padding:12px;text-align:center;color:#999;">No users found</div>';
+                resultsDiv.style.display = 'block';
+            } else {
+                var html = '';
+                users.forEach(u => {
+                    html += `
+                        <div class="search-result-item" onclick="selectUser('${u.username}'); document.getElementById('searchResults').style.display='none'; document.getElementById('searchInput').value='';">
+                            <div class="avatar" style="width:40px;height:40px;font-size:16px;">${u.username[0].toUpperCase()}</div>
+                            <div>
+                                <div style="font-weight:600;">${escapeHtml(u.username)}</div>
+                                <div style="font-size:12px;color:#6c757d;">${u.is_online ? 'Online' : 'Last seen ' + u.last_seen}</div>
+                            </div>
                         </div>
-                        <div class="contact-info">
-                            <div class="contact-name">${u.full_name || u.username}</div>
-                            <div class="contact-last-msg">@${u.username}</div>
-                        </div>
-                    </div>`;
+                    `;
+                });
+                resultsDiv.innerHTML = html;
+                resultsDiv.style.display = 'block';
+            }
         });
-        document.getElementById('contactsList').innerHTML = html || '<div style="text-align:center;padding:40px;">No users found</div>';
-    });
 }
 
-function globalSearch() {
-    var query = document.getElementById('globalSearch').value;
-    if (query.length < 1) { document.getElementById('searchResults').innerHTML = ''; return; }
-    fetch('/api/search_users?q=' + query).then(r => r.json()).then(users => {
-        var html = '';
-        users.forEach(u => {
-            html += `<div class="contact-item" onclick="selectUser('${u.username}');closeSearchModal();">
-                        <div class="contact-avatar">${u.profile_pic || u.username[0].toUpperCase()}</div>
-                        <div class="contact-info"><div class="contact-name">${u.full_name || u.username}</div><div class="contact-last-msg">@${u.username}</div></div>
-                    </div>`;
-        });
-        document.getElementById('searchResults').innerHTML = html || '<p style="text-align:center;padding:20px;">No users found</p>';
-    });
-}
-
+// ============================================
+// CHAT FUNCTIONS
+// ============================================
 function selectUser(user) {
     currentReceiver = user;
+    document.getElementById('chatArea').style.display = 'flex';
     document.getElementById('chatContactName').innerText = user;
     document.getElementById('chatContactStatus').innerText = 'Online';
-    document.getElementById('chatArea').style.display = 'flex';
-    document.querySelectorAll('.contact-item').forEach(i => i.classList.remove('active'));
+    
+    document.querySelectorAll('.contact').forEach(c => c.classList.remove('active'));
+    var activeContact = document.querySelector(`.contact[data-user="${user}"]`);
+    if (activeContact) activeContact.classList.add('active');
+    
     socket.emit('get_history', { with: user });
+    markMessagesAsRead(user);
     document.getElementById('messageInput').focus();
+    
+    // Clear search results
+    document.getElementById('searchResults').style.display = 'none';
+    document.getElementById('searchInput').value = '';
 }
 
 function sendMessage() {
-    var msg = document.getElementById('messageInput').value.trim();
-    if (!msg || !currentReceiver) return;
+    var input = document.getElementById('messageInput');
+    var message = input.value.trim();
+    
+    if (!message || !currentReceiver) return;
+    
     var time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    socket.emit('private_message', { to: currentReceiver, message: msg });
-    displayMessage(username, msg, time, true);
-    document.getElementById('messageInput').value = '';
+    var messageId = Date.now();
+    
+    displayMessage(username, message, time, true, false, true);
+    socket.emit('private_message', { to: currentReceiver, message: message });
+    
+    input.value = '';
     scrollToBottom();
+    
     clearTimeout(typingTimeout);
     socket.emit('typing_stop', { to: currentReceiver });
 }
 
-function displayMessage(sender, text, time, isSent) {
+function displayMessage(sender, text, time, isSent, isRead, isDelivered) {
     var container = document.getElementById('messages');
     var empty = container.querySelector('div[style*="text-align:center"]');
     if (empty) empty.remove();
-    var div = document.createElement('div');
-    div.className = 'message ' + (isSent ? 'sent' : 'received');
-    div.innerHTML = `<div class="bubble">${!isSent ? '<div class="message-name">' + escapeHtml(sender) + '</div>' : ''}<div class="msg-text">${escapeHtml(text)}</div><div class="msg-time">${time} ${isSent ? '<i class="fas fa-check-double"></i>' : ''}</div></div>`;
-    container.appendChild(div);
+    
+    var msgDiv = document.createElement('div');
+    msgDiv.className = 'message ' + (isSent ? 'sent' : 'received');
+    msgDiv.setAttribute('data-sender', sender);
+    
+    var tickHtml = '';
+    if (isSent) {
+        if (isRead) tickHtml = '<i class="fas fa-check-double blue-tick"></i>';
+        else if (isDelivered) tickHtml = '<i class="fas fa-check-double"></i>';
+        else tickHtml = '<i class="fas fa-check"></i>';
+    }
+    
+    msgDiv.innerHTML = `
+        <div class="bubble">
+            ${!isSent ? '<div class="message-name">' + escapeHtml(sender) + '</div>' : ''}
+            <div class="msg-text">${escapeHtml(text)}</div>
+            <div class="msg-time">${time} ${tickHtml}</div>
+        </div>
+    `;
+    
+    container.appendChild(msgDiv);
 }
 
-function addEmoji() {
-    var emojis = ['😀','😂','😍','🔥','👍','🎉','❤️','😎','✨','💯','🥰','🤣','😭','🙌','💪','👋','🙏','💀','🤡','👻'];
-    document.getElementById('messageInput').value += emojis[Math.floor(Math.random() * emojis.length)];
-    document.getElementById('messageInput').focus();
+function markMessagesAsRead(user) {
+    socket.emit('mark_read', { from: user });
 }
 
-function scrollToBottom() { var m = document.getElementById('messages'); m.scrollTop = m.scrollHeight; }
-
-function escapeHtml(t) { var d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
-
-function switchTab(tab) {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    if (tab === 'chats') { document.querySelector('.tab:first-child').classList.add('active'); loadContacts(); }
-    else if (tab === 'status') { document.querySelector('.tab:nth-child(2)').classList.add('active'); loadStatuses(); }
+function updateMessageStatus(messageId, status) {
+    var messages = document.querySelectorAll('.message.sent');
+    var lastMsg = messages[messages.length - 1];
+    if (lastMsg) {
+        var timeDiv = lastMsg.querySelector('.msg-time');
+        if (timeDiv && status === 'delivered') {
+            var checkIcon = timeDiv.querySelector('.fa-check');
+            if (checkIcon) {
+                checkIcon.className = 'fas fa-check-double';
+            }
+        }
+    }
 }
 
-function loadStatuses() {
-    fetch('/api/get_statuses').then(r => r.json()).then(statuses => {
-        var html = '<div style="padding:10px;" onclick="openStatusModal()"><div class="status-item"><div class="contact-avatar status-ring">📷</div><div class="contact-info"><div class="contact-name">My Status</div><div class="contact-last-msg">Tap to add status update</div></div></div></div>';
-        statuses.forEach(s => {
-            html += `<div class="status-item" onclick="viewStatus(${s.id})"><div class="contact-avatar status-ring">${s.content_type === 'text' ? '📝' : '📷'}</div><div class="contact-info"><div class="contact-name">${s.username}</div><div class="contact-last-msg">${s.content.substring(0,30)}</div></div><div class="contact-time">${s.time_ago}</div></div>`;
-        });
-        document.getElementById('contactsList').innerHTML = html || '<div style="text-align:center;padding:40px;">No status updates</div>';
+function updateAllMessagesRead(fromUser) {
+    var messages = document.querySelectorAll('.message.sent');
+    messages.forEach(msg => {
+        var timeDiv = msg.querySelector('.msg-time');
+        if (timeDiv) {
+            var icon = timeDiv.querySelector('.fa-check-double');
+            if (icon) icon.classList.add('blue-tick');
+        }
     });
 }
 
-function postStatus() {
-    var content = document.getElementById('statusContent').value;
-    if (!content) return;
-    fetch('/api/post_status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: content, content_type: 'text' }) })
-        .then(() => { closeStatusModal(); loadStatuses(); });
+// ============================================
+// UI HELPER FUNCTIONS
+// ============================================
+function updateUserStatus(user, isOnline, lastSeen) {
+    var contact = document.querySelector(`.contact[data-user="${user}"]`);
+    if (contact) {
+        var statusDiv = contact.querySelector('.contact-status');
+        if (statusDiv) statusDiv.innerText = isOnline ? 'Online' : ('Last seen ' + lastSeen);
+        
+        var avatar = contact.querySelector('.avatar');
+        if (avatar) {
+            if (isOnline && !avatar.querySelector('.online-dot')) {
+                var dot = document.createElement('div');
+                dot.className = 'online-dot';
+                avatar.appendChild(dot);
+            } else if (!isOnline) {
+                var dot = avatar.querySelector('.online-dot');
+                if (dot) dot.remove();
+            }
+        }
+    }
 }
 
-function updateProfile() {
-    var data = { full_name: document.getElementById('editFullName').value, bio: document.getElementById('editBio').value, profile_pic: document.getElementById('editProfilePic').value };
-    fetch('/api/update_profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
-        .then(() => { closeProfileModal(); location.reload(); });
+function updateChatStatus(status) {
+    document.getElementById('chatContactStatus').innerText = status;
 }
 
-function logout() { window.location.href = '/logout'; }
-function openProfileModal() { document.getElementById('profileModal').style.display = 'flex'; }
-function closeProfileModal() { document.getElementById('profileModal').style.display = 'none'; }
-function openSearchModal() { document.getElementById('searchModal').style.display = 'flex'; }
-function closeSearchModal() { document.getElementById('searchModal').style.display = 'none'; }
-function openStatusModal() { document.getElementById('statusModal').style.display = 'flex'; }
-function closeStatusModal() { document.getElementById('statusModal').style.display = 'none'; }
+function showTypingIndicator(user) {
+    var typingDiv = document.getElementById('typingIndicator');
+    typingDiv.innerHTML = `<div class="typing-dots"><span></span><span></span><span></span></div> ${escapeHtml(user)} is typing...`;
+}
 
-document.getElementById('messageInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') sendMessage(); });
-document.getElementById('messageInput').addEventListener('input', function() { if (!currentReceiver) return; socket.emit('typing', { to: currentReceiver }); clearTimeout(typingTimeout); typingTimeout = setTimeout(function() { socket.emit('typing_stop', { to: currentReceiver }); }, 1000); });
+function hideTypingIndicator() {
+    document.getElementById('typingIndicator').innerHTML = '';
+}
+
+function showNotificationBadge(user) {
+    var contact = document.querySelector(`.contact[data-user="${user}"]`);
+    if (contact && !contact.classList.contains('active')) {
+        var statusDiv = contact.querySelector('.contact-status');
+        if (statusDiv && !statusDiv.innerText.includes('●')) {
+            statusDiv.innerText = '● New message ●';
+            statusDiv.style.color = '#25D366';
+        }
+    }
+}
+
+function addEmoji() {
+    var emojis = ['😀','😂','😍','🔥','👍','🎉','❤️','😎','✨','💯','🥰','🤣','😭','🙌','💪','👋'];
+    var input = document.getElementById('messageInput');
+    input.value += emojis[Math.floor(Math.random() * emojis.length)];
+    input.focus();
+}
+
+function scrollToBottom() {
+    var container = document.getElementById('messages');
+    container.scrollTop = container.scrollHeight;
+}
+
+function playSound() {
+    try {
+        var audio = new Audio('data:audio/wav;base64,U3RlYWx0aCBzb3VuZA==');
+        audio.play().catch(e => {});
+    } catch(e) {}
+}
+
+function escapeHtml(text) {
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// ============================================
+// MODAL FUNCTIONS
+// ============================================
+function openSearchModal() {
+    document.getElementById('searchModal').style.display = 'flex';
+}
+function closeSearchModal() {
+    document.getElementById('searchModal').style.display = 'none';
+}
+function openProfileModal() {
+    document.getElementById('profileModal').style.display = 'flex';
+}
+function closeProfileModal() {
+    document.getElementById('profileModal').style.display = 'none';
+}
+function logout() {
+    window.location.href = '/logout';
+}
+
+// ============================================
+// EVENT LISTENERS
+// ============================================
+document.getElementById('searchInput').addEventListener('input', searchUsers);
+document.getElementById('messageInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') sendMessage();
+});
+document.getElementById('messageInput').addEventListener('input', function() {
+    if (!currentReceiver) return;
+    socket.emit('typing_start', { to: currentReceiver });
+    clearTimeout(typingTimeout);
+    typingTimeout = setTimeout(function() {
+        socket.emit('typing_stop', { to: currentReceiver });
+    }, 1000);
+});
+
+// Click outside search results
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.search-bar')) {
+        document.getElementById('searchResults').style.display = 'none';
+    }
+});
 
 loadContacts();
-setInterval(loadContacts, 5000);
+setInterval(loadContacts, 10000);
+</script>
+
+<!-- Search Modal -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <h3>Search Users</h3>
+        <input type="text" id="globalSearch" placeholder="Enter username..." onkeyup="globalSearch()" style="width:100%;padding:12px;margin:10px 0;border-radius:10px;border:1px solid #ddd;">
+        <div id="globalSearchResults"></div>
+        <button onclick="closeSearchModal()" style="width:100%;padding:12px;margin-top:10px;background:#075E54;color:white;border:none;border-radius:10px;cursor:pointer;">Close</button>
+    </div>
+</div>
+
+<!-- Profile Modal -->
+<div id="profileModal" class="modal">
+    <div class="modal-content">
+        <h3>Your Profile</h3>
+        <p><strong>Username:</strong> {{ username }}</p>
+        <p><strong>Status:</strong> <span id="userStatus">Online</span></p>
+        <button onclick="closeProfileModal()" style="width:100%;padding:12px;margin-top:10px;background:#075E54;color:white;border:none;border-radius:10px;cursor:pointer;">Close</button>
+    </div>
+</div>
+
+<script>
+function globalSearch() {
+    var query = document.getElementById('globalSearch').value.trim();
+    if (query.length < 1) {
+        document.getElementById('globalSearchResults').innerHTML = '';
+        return;
+    }
+    fetch('/api/search?q=' + encodeURIComponent(query))
+        .then(r => r.json())
+        .then(users => {
+            if (users.length === 0) {
+                document.getElementById('globalSearchResults').innerHTML = '<p style="text-align:center;padding:20px;color:#999;">No users found</p>';
+            } else {
+                var html = '';
+                users.forEach(u => {
+                    html += `
+                        <div style="padding:12px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:12px;cursor:pointer;" onclick="selectUser('${u.username}'); closeSearchModal();">
+                            <div style="width:40px;height:40px;background:linear-gradient(135deg,#075E54,#128C7E);border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:600;">${u.username[0].toUpperCase()}</div>
+                            <div><div style="font-weight:600;">${escapeHtml(u.username)}</div><div style="font-size:12px;color:#6c757d;">${u.is_online ? 'Online' : 'Last seen ' + u.last_seen}</div></div>
+                        </div>
+                    `;
+                });
+                document.getElementById('globalSearchResults').innerHTML = html;
+            }
+        });
+}
 </script>
 </body>
 </html>
