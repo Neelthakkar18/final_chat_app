@@ -1,173 +1,216 @@
-// Socket.IO connection
-var socket = io();
+/* ============================================
+   WHATSAPP CLONE - COMPLETE JAVASCRIPT
+   ============================================ */
+
+// ============================================
+// GLOBAL VARIABLES
+// ============================================
+
+var username = "";
 var currentReceiver = null;
+var socket = null;
 var typingTimeout = null;
+var currentTab = "chats";
 
-// Initialize when page loads
-document.addEventListener('DOMContentLoaded', function() {
-    loadUsers();
-    setupEventListeners();
-});
+// ============================================
+// SOCKET.IO CONNECTION
+// ============================================
 
-// Socket events
-socket.on('connect', function() {
-    console.log('Connected to server');
-});
-
-socket.on('users_list', function(users) {
-    updateUsersList(users);
-});
-
-socket.on('receive_message', function(data) {
-    if (currentReceiver === data.from) {
-        displayMessage(data.from, data.message, data.timestamp, false);
-        playNotificationSound();
-    } else {
-        showNotificationBadge(data.from);
-    }
-    saveMessageToStorage(data.from, data.message, data.timestamp, false);
-});
-
-socket.on('user_joined', function(data) {
-    addSystemMessage(data.username + ' joined the chat');
-    loadUsers();
-});
-
-socket.on('user_left', function(username) {
-    addSystemMessage(username + ' left the chat');
-    loadUsers();
-});
-
-socket.on('user_typing', function(data) {
-    if (currentReceiver === data.from) {
-        showTypingIndicator(data.from);
-    }
-});
-
-socket.on('user_stop_typing', function(data) {
-    if (currentReceiver === data.from) {
-        hideTypingIndicator();
-    }
-});
-
-socket.on('message_history', function(messages) {
-    messages.forEach(function(msg) {
-        displayMessage(msg.sender, msg.message, msg.time, msg.sender === username);
+function initSocket() {
+    socket = io();
+    
+    socket.on('connect', function() {
+        console.log('✅ Connected to server');
+        loadContacts();
+        loadStatuses();
     });
-});
-
-// Load users from server
-function loadUsers() {
-    socket.emit('get_users');
+    
+    socket.on('receive_message', function(data) {
+        if (currentReceiver === data.from) {
+            displayMessage(data.from, data.message, data.timestamp, false);
+            scrollToBottom();
+            markMessagesAsRead(data.from);
+        } else {
+            showNotificationBadge(data.from);
+        }
+        loadContacts();
+    });
+    
+    socket.on('user_typing', function(data) {
+        if (currentReceiver === data.from) {
+            showTypingIndicator(data.from);
+        }
+    });
+    
+    socket.on('user_stop_typing', function(data) {
+        if (currentReceiver === data.from) {
+            hideTypingIndicator();
+        }
+    });
+    
+    socket.on('user_online', function(data) {
+        updateUserStatus(data.username, true);
+        addSystemMessage('✨ ' + data.username + ' is online');
+    });
+    
+    socket.on('user_offline', function(data) {
+        updateUserStatus(data.username, false);
+        addSystemMessage('👋 ' + data.username + ' went offline');
+    });
+    
+    socket.on('message_history', function(messages) {
+        var container = document.getElementById('messages');
+        container.innerHTML = '';
+        if (messages.length === 0) {
+            container.innerHTML = '<div class="empty-state"><i class="fas fa-comment-dots"></i><p>No messages yet. Say hello!</p></div>';
+        } else {
+            messages.forEach(function(msg) {
+                displayMessage(msg.sender, msg.message, msg.timestamp, msg.sender === username);
+            });
+            scrollToBottom();
+        }
+    });
+    
+    socket.on('messages_read', function(data) {
+        updateReadReceipts(data.from);
+    });
 }
 
-// Update users list in sidebar
-function updateUsersList(users) {
-    var usersList = document.getElementById('usersList');
-    if (!usersList) return;
-    
-    usersList.innerHTML = '';
-    
-    if (users.length === 0) {
-        usersList.innerHTML = '<div class="empty-state">No other users online</div>';
+// ============================================
+// CONTACT MANAGEMENT
+// ============================================
+
+function loadContacts() {
+    fetch('/api/get_contacts')
+        .then(response => response.json())
+        .then(contacts => {
+            var container = document.getElementById('contactsList');
+            if (currentTab === 'chats') {
+                if (contacts.length === 0) {
+                    container.innerHTML = '<div class="empty-state"><i class="fas fa-users"></i><p>No chats yet.<br>Search for users to start chatting!</p></div>';
+                } else {
+                    var html = '';
+                    contacts.forEach(contact => {
+                        var statusText = contact.is_online ? 'Online' : ('Last seen ' + contact.last_seen);
+                        var onlineDot = contact.is_online ? '<div class="online-dot"></div>' : '';
+                        html += `
+                            <div class="contact-item" data-user="${contact.username}" onclick="selectUser('${contact.username}')">
+                                <div class="contact-avatar">
+                                    ${contact.profile_pic || contact.username.charAt(0).toUpperCase()}
+                                    ${onlineDot}
+                                </div>
+                                <div class="contact-info">
+                                    <div class="contact-name">${escapeHtml(contact.full_name || contact.username)}</div>
+                                    <div class="contact-last-msg">${escapeHtml(statusText)}</div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    container.innerHTML = html;
+                }
+            }
+        })
+        .catch(error => console.error('Error loading contacts:', error));
+}
+
+function searchUsers() {
+    var query = document.getElementById('searchInput').value;
+    if (query.length < 1) {
+        loadContacts();
         return;
     }
     
-    users.forEach(function(user) {
-        var userDiv = document.createElement('div');
-        userDiv.className = 'user-item';
-        userDiv.setAttribute('data-user', user.id);
-        userDiv.setAttribute('data-name', user.name || user.id);
-        
-        userDiv.innerHTML = `
-            <div class="avatar small">${(user.name || user.id).charAt(0).toUpperCase()}</div>
-            <div class="user-info">
-                <div class="name">${escapeHtml(user.name || user.id)}</div>
-                <div class="last-msg">Click to chat</div>
-            </div>
-            <div class="notification-badge" style="display:none;">●</div>
-        `;
-        
-        userDiv.onclick = (function(u) {
-            return function() { selectUser(u.id, u.name || u.id); };
-        })(user);
-        
-        usersList.appendChild(userDiv);
-    });
+    fetch('/api/search_users?q=' + encodeURIComponent(query))
+        .then(response => response.json())
+        .then(users => {
+            var container = document.getElementById('contactsList');
+            if (users.length === 0) {
+                container.innerHTML = '<div class="empty-state"><i class="fas fa-user-slash"></i><p>No users found</p></div>';
+            } else {
+                var html = '';
+                users.forEach(user => {
+                    var onlineDot = user.is_online ? '<div class="online-dot"></div>' : '';
+                    html += `
+                        <div class="contact-item" onclick="selectUser('${user.username}')">
+                            <div class="contact-avatar">
+                                ${user.profile_pic || user.username.charAt(0).toUpperCase()}
+                                ${onlineDot}
+                            </div>
+                            <div class="contact-info">
+                                <div class="contact-name">${escapeHtml(user.full_name || user.username)}</div>
+                                <div class="contact-last-msg">@${escapeHtml(user.username)}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            }
+        });
 }
 
-// Select user to chat with
-function selectUser(userId, userName) {
-    currentReceiver = userId;
+function globalSearch() {
+    var query = document.getElementById('globalSearch').value;
+    if (query.length < 1) {
+        document.getElementById('searchResults').innerHTML = '';
+        return;
+    }
     
-    // Update header
-    document.getElementById('selectedUserName').innerText = userName;
-    document.getElementById('chatHeader').style.display = 'flex';
+    fetch('/api/search_users?q=' + encodeURIComponent(query))
+        .then(response => response.json())
+        .then(users => {
+            var container = document.getElementById('searchResults');
+            if (users.length === 0) {
+                container.innerHTML = '<p style="text-align:center;padding:20px;color:#999;">No users found</p>';
+            } else {
+                var html = '';
+                users.forEach(user => {
+                    html += `
+                        <div class="contact-item" onclick="selectUser('${user.username}'); closeSearchModal();">
+                            <div class="contact-avatar">${user.profile_pic || user.username.charAt(0).toUpperCase()}</div>
+                            <div class="contact-info">
+                                <div class="contact-name">${escapeHtml(user.full_name || user.username)}</div>
+                                <div class="contact-last-msg">@${escapeHtml(user.username)}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            }
+        });
+}
+
+// ============================================
+// CHAT FUNCTIONS
+// ============================================
+
+function selectUser(user) {
+    currentReceiver = user;
     
-    // Highlight active user
-    document.querySelectorAll('.user-item').forEach(function(item) {
+    // Update UI
+    document.getElementById('chatContactName').innerText = user;
+    document.getElementById('chatContactStatus').innerText = 'Online';
+    document.getElementById('chatArea').style.display = 'flex';
+    
+    // Highlight selected contact
+    document.querySelectorAll('.contact-item').forEach(item => {
         item.classList.remove('active');
-        if (item.getAttribute('data-user') === userId) {
+        if (item.getAttribute('data-user') === user) {
             item.classList.add('active');
-            // Hide notification badge
-            var badge = item.querySelector('.notification-badge');
-            if (badge) badge.style.display = 'none';
         }
     });
     
     // Load chat history
-    loadChatHistory(userId);
+    socket.emit('get_history', { with: user });
     
-    // Clear messages container
-    var messagesDiv = document.getElementById('messages');
-    if (messagesDiv) {
-        messagesDiv.innerHTML = '';
-    }
+    // Mark messages as read
+    markMessagesAsRead(user);
     
-    // Load stored messages
-    loadStoredMessages(userId);
-    
-    // Focus on input
-    document.getElementById('msg')?.focus();
+    // Focus input
+    document.getElementById('messageInput').focus();
 }
 
-// Load chat history from server
-function loadChatHistory(userId) {
-    socket.emit('get_history', { with: userId });
-}
-
-// Load stored messages from localStorage
-function loadStoredMessages(userId) {
-    var stored = localStorage.getItem('chat_' + username + '_' + userId);
-    if (stored) {
-        var messages = JSON.parse(stored);
-        messages.forEach(function(msg) {
-            displayMessage(msg.sender, msg.text, msg.time, msg.sender === username);
-        });
-    }
-}
-
-// Save message to localStorage
-function saveMessageToStorage(receiver, text, time, isSent) {
-    var key = 'chat_' + username + '_' + (isSent ? receiver : currentReceiver);
-    var stored = localStorage.getItem(key);
-    var messages = stored ? JSON.parse(stored) : [];
-    
-    messages.push({
-        sender: isSent ? username : receiver,
-        text: text,
-        time: time,
-        isSent: isSent
-    });
-    
-    // Keep only last 100 messages
-    if (messages.length > 100) messages.shift();
-    localStorage.setItem(key, JSON.stringify(messages));
-}
-
-// Send message
 function sendMessage() {
-    var input = document.getElementById('msg');
+    var input = document.getElementById('messageInput');
     var message = input.value.trim();
     
     if (!message) return;
@@ -178,33 +221,25 @@ function sendMessage() {
     
     var time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     
-    // Send via socket
     socket.emit('private_message', {
         to: currentReceiver,
-        message: message,
-        timestamp: time
+        message: message
     });
     
-    // Display message locally
     displayMessage(username, message, time, true);
-    saveMessageToStorage(currentReceiver, message, time, true);
-    
-    // Clear input
     input.value = '';
-    input.focus();
+    scrollToBottom();
     
     // Stop typing indicator
-    if (typingTimeout) clearTimeout(typingTimeout);
+    clearTimeout(typingTimeout);
     socket.emit('typing_stop', { to: currentReceiver });
 }
 
-// Display message in chat
 function displayMessage(sender, text, time, isSent) {
-    var messagesDiv = document.getElementById('messages');
-    if (!messagesDiv) return;
+    var container = document.getElementById('messages');
     
     // Remove empty state if present
-    var emptyState = messagesDiv.querySelector('.empty-chat');
+    var emptyState = container.querySelector('.empty-state');
     if (emptyState) emptyState.remove();
     
     var messageDiv = document.createElement('div');
@@ -214,131 +249,227 @@ function displayMessage(sender, text, time, isSent) {
         <div class="bubble">
             ${!isSent ? '<div class="message-name">' + escapeHtml(sender) + '</div>' : ''}
             <div class="msg-text">${escapeHtml(text)}</div>
-            <div class="msg-time">${time} ${isSent ? '<i class="fas fa-check"></i>' : ''}</div>
+            <div class="msg-time">
+                ${time}
+                ${isSent ? '<i class="fas fa-check-double"></i>' : ''}
+            </div>
         </div>
     `;
     
-    messagesDiv.appendChild(messageDiv);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    container.appendChild(messageDiv);
 }
 
-// Show typing indicator
-function showTypingIndicator(user) {
-    var typingDiv = document.getElementById('typing');
-    if (typingDiv) {
-        typingDiv.innerHTML = `
-            <div class="typing-indicator">
-                <span class="typing-dots">
-                    <span></span><span></span><span></span>
-                </span>
-                <span>${escapeHtml(user)} is typing...</span>
-            </div>
-        `;
-    }
+function markMessagesAsRead(user) {
+    socket.emit('mark_read', { from: user });
 }
 
-// Hide typing indicator
-function hideTypingIndicator() {
-    var typingDiv = document.getElementById('typing');
-    if (typingDiv) {
-        typingDiv.innerHTML = '';
-    }
-}
-
-// Add system message
-function addSystemMessage(message) {
-    var messagesDiv = document.getElementById('messages');
-    if (!messagesDiv) return;
-    
-    var systemDiv = document.createElement('div');
-    systemDiv.className = 'system-message';
-    systemDiv.innerHTML = `<span>${escapeHtml(message)}</span>`;
-    messagesDiv.appendChild(systemDiv);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-}
-
-// Show notification badge on user item
-function showNotificationBadge(userId) {
-    var userItems = document.querySelectorAll('.user-item');
-    userItems.forEach(function(item) {
-        if (item.getAttribute('data-user') === userId && !item.classList.contains('active')) {
-            var badge = item.querySelector('.notification-badge');
-            if (badge) badge.style.display = 'inline-block';
+function updateReadReceipts(user) {
+    // Update read receipts for messages from user
+    var messages = document.querySelectorAll('.message.received');
+    messages.forEach(msg => {
+        var nameElement = msg.querySelector('.message-name');
+        if (nameElement && nameElement.innerText === user) {
+            var timeElement = msg.querySelector('.msg-time');
+            if (timeElement) {
+                var checkIcon = timeElement.querySelector('.fa-check-double');
+                if (checkIcon) checkIcon.style.color = '#34b7f1';
+            }
         }
     });
 }
 
-// Play notification sound
-function playNotificationSound() {
-    // Simple beep using Web Audio (optional)
-    try {
-        var audio = new Audio('data:audio/wav;base64,U3RlYWx0aCBzb3VuZA==');
-        audio.play().catch(function(e) {});
-    } catch(e) {}
+// ============================================
+// TYPING INDICATOR
+// ============================================
+
+function showTypingIndicator(user) {
+    var typingDiv = document.getElementById('typingIndicator');
+    typingDiv.innerHTML = `
+        <div class="typing-dots">
+            <span></span><span></span><span></span>
+        </div>
+        <span>${escapeHtml(user)} is typing...</span>
+    `;
 }
 
-// Add emoji to input
+function hideTypingIndicator() {
+    document.getElementById('typingIndicator').innerHTML = '';
+}
+
+// ============================================
+// STATUS MANAGEMENT
+// ============================================
+
+function loadStatuses() {
+    fetch('/api/get_statuses')
+        .then(response => response.json())
+        .then(statuses => {
+            var container = document.getElementById('contactsList');
+            if (currentTab === 'status') {
+                var html = `
+                    <div class="status-item" onclick="openStatusModal()">
+                        <div class="contact-avatar status-ring">📷</div>
+                        <div class="contact-info">
+                            <div class="contact-name">My Status</div>
+                            <div class="contact-last-msg">Tap to add status update</div>
+                        </div>
+                    </div>
+                `;
+                
+                if (statuses.length === 0) {
+                    html += '<div class="empty-state"><i class="fas fa-camera"></i><p>No status updates<br>Tap above to add your status</p></div>';
+                } else {
+                    statuses.forEach(status => {
+                        html += `
+                            <div class="status-item" onclick="viewStatus(${status.id})">
+                                <div class="contact-avatar status-ring">${status.content_type === 'text' ? '📝' : '📷'}</div>
+                                <div class="contact-info">
+                                    <div class="contact-name">${escapeHtml(status.username)}</div>
+                                    <div class="contact-last-msg">${escapeHtml(status.content.substring(0, 40))}</div>
+                                </div>
+                                <div class="contact-time">${status.time_ago}</div>
+                            </div>
+                        `;
+                    });
+                }
+                container.innerHTML = html;
+            }
+        });
+}
+
+function postStatus() {
+    var content = document.getElementById('statusContent').value;
+    if (!content) {
+        alert('Please enter a status');
+        return;
+    }
+    
+    fetch('/api/post_status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: content, content_type: 'text' })
+    })
+    .then(response => response.json())
+    .then(() => {
+        closeStatusModal();
+        loadStatuses();
+        document.getElementById('statusContent').value = '';
+    });
+}
+
+function viewStatus(statusId) {
+    fetch('/api/view_status/' + statusId, { method: 'POST' })
+        .then(() => {
+            // Show status in modal
+            alert('Status viewed!');
+        });
+}
+
+// ============================================
+// PROFILE MANAGEMENT
+// ============================================
+
+function updateProfile() {
+    var data = {
+        full_name: document.getElementById('editFullName').value,
+        bio: document.getElementById('editBio').value,
+        profile_pic: document.getElementById('editProfilePic').value
+    };
+    
+    fetch('/api/update_profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(() => {
+        closeProfileModal();
+        location.reload();
+    });
+}
+
+// ============================================
+// UI HELPER FUNCTIONS
+// ============================================
+
+function switchTab(tab) {
+    currentTab = tab;
+    
+    // Update tab UI
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    if (tab === 'chats') {
+        document.querySelector('.tab:first-child').classList.add('active');
+        loadContacts();
+    } else if (tab === 'status') {
+        document.querySelector('.tab:nth-child(2)').classList.add('active');
+        loadStatuses();
+    } else if (tab === 'calls') {
+        document.querySelector('.tab:nth-child(3)').classList.add('active');
+        document.getElementById('contactsList').innerHTML = '<div class="empty-state"><i class="fas fa-phone-slash"></i><p>No call history</p></div>';
+    }
+}
+
 function addEmoji() {
-    var emojis = ['😀', '😂', '😍', '🔥', '👍', '🎉', '❤️', '😎', '✨', '💯', '🥰', '🤣', '😭', '🙌', '💪'];
+    var emojis = ['😀','😂','😍','🔥','👍','🎉','❤️','😎','✨','💯','🥰','🤣','😭','🙌','💪','👋','🙏','💀','🤡','👻','🐱','🐶','🦊','🐼','🐨'];
     var emoji = emojis[Math.floor(Math.random() * emojis.length)];
-    var input = document.getElementById('msg');
+    var input = document.getElementById('messageInput');
     input.value += emoji;
     input.focus();
 }
 
-// Setup event listeners
-function setupEventListeners() {
-    // Send on Enter key
-    var msgInput = document.getElementById('msg');
-    if (msgInput) {
-        msgInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                sendMessage();
-            }
-        });
-        
-        // Typing indicator
-        msgInput.addEventListener('input', function() {
-            if (!currentReceiver) return;
-            
-            socket.emit('typing', { to: currentReceiver });
-            
-            clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(function() {
-                socket.emit('typing_stop', { to: currentReceiver });
-            }, 1000);
-        });
-    }
+function scrollToBottom() {
+    var container = document.getElementById('messages');
+    container.scrollTop = container.scrollHeight;
+}
+
+function addSystemMessage(message) {
+    var container = document.getElementById('messages');
+    var emptyState = container.querySelector('.empty-state');
+    if (emptyState) emptyState.remove();
     
-    // Search users
-    var searchInput = document.getElementById('searchUsers');
-    if (searchInput) {
-        searchInput.addEventListener('input', function(e) {
-            var searchTerm = e.target.value.toLowerCase();
-            var users = document.querySelectorAll('.user-item');
-            users.forEach(function(user) {
-                var name = user.querySelector('.name')?.innerText.toLowerCase() || '';
-                if (name.includes(searchTerm)) {
-                    user.style.display = 'flex';
-                } else {
-                    user.style.display = 'none';
-                }
-            });
-        });
-    }
+    var systemDiv = document.createElement('div');
+    systemDiv.className = 'system-message';
+    systemDiv.innerHTML = `<span>${escapeHtml(message)}</span>`;
+    container.appendChild(systemDiv);
+    scrollToBottom();
     
-    // Logout button
-    var logoutBtn = document.getElementById('logoutBtn');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', function() {
-            socket.emit('disconnect');
-            window.location.href = '/logout';
-        });
+    setTimeout(() => {
+        if (systemDiv) systemDiv.remove();
+    }, 3000);
+}
+
+function showNotificationBadge(user) {
+    var contact = document.querySelector(`.contact-item[data-user="${user}"]`);
+    if (contact && !contact.classList.contains('active')) {
+        var badge = document.createElement('div');
+        badge.className = 'notification-badge';
+        badge.innerHTML = '●';
+        badge.style.cssText = 'color:#25D366;font-size:12px;margin-left:auto;';
+        if (!contact.querySelector('.notification-badge')) {
+            contact.appendChild(badge);
+        }
     }
 }
 
-// Escape HTML to prevent XSS
+function updateUserStatus(username, isOnline) {
+    var contact = document.querySelector(`.contact-item[data-user="${username}"]`);
+    if (contact) {
+        var avatar = contact.querySelector('.contact-avatar');
+        if (isOnline) {
+            if (!avatar.querySelector('.online-dot')) {
+                var dot = document.createElement('div');
+                dot.className = 'online-dot';
+                avatar.appendChild(dot);
+            }
+            var statusText = contact.querySelector('.contact-last-msg');
+            if (statusText) statusText.innerText = 'Online';
+        } else {
+            var dot = avatar.querySelector('.online-dot');
+            if (dot) dot.remove();
+        }
+    }
+}
+
 function escapeHtml(text) {
     if (!text) return '';
     var div = document.createElement('div');
@@ -346,21 +477,66 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Refresh users list periodically
-setInterval(function() {
-    if (socket.connected) {
-        socket.emit('get_users');
-    }
-}, 10000);
+// ============================================
+// MODAL FUNCTIONS
+// ============================================
 
-// Handle page visibility (mark messages as read)
-document.addEventListener('visibilitychange', function() {
-    if (!document.hidden && currentReceiver) {
-        socket.emit('mark_read', { with: currentReceiver });
+function openProfileModal() { document.getElementById('profileModal').style.display = 'flex'; }
+function closeProfileModal() { document.getElementById('profileModal').style.display = 'none'; }
+function openSearchModal() { document.getElementById('searchModal').style.display = 'flex'; }
+function closeSearchModal() { document.getElementById('searchModal').style.display = 'none'; }
+function openStatusModal() { document.getElementById('statusModal').style.display = 'flex'; }
+function closeStatusModal() { document.getElementById('statusModal').style.display = 'none'; }
+
+function logout() {
+    window.location.href = '/logout';
+}
+
+// ============================================
+// EVENT LISTENERS
+// ============================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    initSocket();
+    
+    // Message input events
+    var messageInput = document.getElementById('messageInput');
+    if (messageInput) {
+        messageInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') sendMessage();
+        });
+        
+        messageInput.addEventListener('input', function() {
+            if (!currentReceiver) return;
+            socket.emit('typing', { to: currentReceiver });
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(function() {
+                socket.emit('typing_stop', { to: currentReceiver });
+            }, 1000);
+        });
     }
+    
+    // Search input events
+    var searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', searchUsers);
+    }
+    
+    var globalSearchInput = document.getElementById('globalSearch');
+    if (globalSearchInput) {
+        globalSearchInput.addEventListener('input', globalSearch);
+    }
+    
+    // Click outside modal to close
+    window.onclick = function(event) {
+        if (event.target.classList.contains('modal')) {
+            event.target.style.display = 'none';
+        }
+    };
 });
 
-// Export functions for global use
-window.sendMessage = sendMessage;
-window.addEmoji = addEmoji;
-window.selectUser = selectUser;
+// Auto-refresh contacts every 10 seconds
+setInterval(function() {
+    if (currentTab === 'chats') loadContacts();
+    else if (currentTab === 'status') loadStatuses();
+}, 10000);
