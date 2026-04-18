@@ -283,4 +283,6 @@ def handle_get_history(data):
     emit('message_history', history)
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True, port=5000)
+    import os
+    port = int(os.environ.get('PORT', 5000))
+    socketio.run(app, host='0.0.0.0', port=port, debug=False)
