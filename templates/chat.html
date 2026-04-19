@@ -1,121 +1,83 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>WhatsApp</title>
-
-    <!-- Fonts + Icons -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-
-    <!-- CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
 </head>
 
 <body data-username="{{ username }}">
 
 <div class="app">
 
-    <!-- SIDEBAR -->
-    <div class="sidebar">
+<div class="sidebar">
+    <h3>{{ username }}</h3>
+    <input id="search" placeholder="Search user">
+    <div id="users"></div>
+</div>
 
-        <div class="sidebar-header">
-            <h2>WhatsApp</h2>
-        </div>
+<div class="chat-area">
+<div id="chatName">Select user</div>
+<div id="messages"></div>
+<div id="typing"></div>
 
-        <div class="search-bar">
-            <div class="search-box">
-                <i class="fas fa-search"></i>
-                <input id="searchInput" placeholder="Search user">
-            </div>
-        </div>
-
-        <div id="contactsList" class="contacts-list"></div>
-
-    </div>
-
-    <!-- CHAT -->
-    <div class="chat-area" id="chatArea">
-
-        <div class="chat-header">
-            <div class="avatar" id="chatAvatar">👤</div>
-            <div>
-                <div id="chatName">Select user</div>
-                <div id="chatStatus">Offline</div>
-            </div>
-        </div>
-
-        <div id="messages" class="messages-container"></div>
-
-        <div id="typing" class="typing-indicator"></div>
-
-        <div class="input-area">
-            <input id="msg" placeholder="Type a message">
-            <button onclick="send()"><i class="fas fa-paper-plane"></i></button>
-        </div>
-
-    </div>
+<div class="input">
+<input id="msg">
+<button onclick="send()">➤</button>
+</div>
+</div>
 
 </div>
 
-<script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
-
 <script>
-let socket = io({ transports:["websocket"], upgrade:false });
+let socket=io({transports:["websocket"]});
+let username=document.body.dataset.username;
+let current=null;
 
-let username = document.body.dataset.username;
-let currentUser = null;
-
-// connect
-socket.on("connect",()=>console.log("connected"));
-
-// receive
-socket.on("receive_message",(d)=>{
-    if(currentUser===d.from){
-        addMsg(d.from,d.msg,false);
-    }
+// load users
+fetch('/api/users').then(r=>r.json()).then(data=>{
+    let box=document.getElementById("users");
+    data.forEach(u=>{
+        let div=document.createElement("div");
+        div.innerText=u;
+        div.onclick=()=>selectUser(u);
+        box.appendChild(div);
+    });
 });
 
-// typing
-socket.on("typing",(d)=>{
-    document.getElementById("typing").innerText=d.from+" typing...";
-    setTimeout(()=>document.getElementById("typing").innerText="",1000);
-});
-
-// select user
 function selectUser(u){
-    currentUser=u;
-    document.getElementById("chatArea").style.display="flex";
+    current=u;
     document.getElementById("chatName").innerText=u;
 }
 
-// send
+socket.on("receive_message",(d)=>{
+    if(current===d.from||d.from===username){
+        addMsg(d.from,d.msg,d.from===username);
+    }
+});
+
 function send(){
     let m=document.getElementById("msg").value;
-    if(!m||!currentUser)return;
+    if(!m||!current)return;
 
     addMsg(username,m,true);
-
-    socket.emit("send_message",{msg:m,to:currentUser});
+    socket.emit("send_message",{msg:m,to:current});
     document.getElementById("msg").value="";
 }
 
-// add message
 function addMsg(sender,text,sent){
-    let box=document.getElementById("messages");
-
     let div=document.createElement("div");
-    div.className="message "+(sent?"sent":"received");
-
-    div.innerHTML=`<div class="bubble">${text}</div>`;
-    box.appendChild(div);
-    box.scrollTop=box.scrollHeight;
+    div.className=sent?"sent":"received";
+    div.innerText=text;
+    document.getElementById("messages").appendChild(div);
 }
 
-// typing emit
 document.getElementById("msg").addEventListener("input",()=>{
-    if(currentUser){
-        socket.emit("typing",{to:currentUser});
-    }
+    if(current) socket.emit("typing",{to:current});
+});
+
+socket.on("typing",(d)=>{
+    document.getElementById("typing").innerText=d.from+" typing...";
+    setTimeout(()=>document.getElementById("typing").innerText="",1000);
 });
 </script>
 
