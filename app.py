@@ -12,25 +12,14 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite'
 
-# IMPORTANT for Render
-app.config['SESSION_COOKIE_SAMESITE'] = "None"
-app.config['SESSION_COOKIE_SECURE'] = True
-
 db.init_app(app)
 
-socketio = SocketIO(
-    app,
-    cors_allowed_origins="*",
-    async_mode="eventlet",
-    manage_session=False
-)
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
 
 online_users = {}
 
 with app.app_context():
     db.create_all()
-
-# ================= ROUTES =================
 
 @app.route('/')
 def home():
@@ -43,12 +32,10 @@ def login():
     if request.method == 'POST':
         u = request.form['username']
         p = request.form['password']
-
         user = User.query.filter_by(username=u).first()
         if user and bcrypt.checkpw(p.encode(), user.password):
             session['username'] = u
             return redirect('/chat')
-
     return render_template('login.html')
 
 @app.route('/register', methods=['GET','POST'])
@@ -56,12 +43,10 @@ def register():
     if request.method == 'POST':
         u = request.form['username']
         p = request.form['password']
-
         hashed = bcrypt.hashpw(p.encode(), bcrypt.gensalt())
         db.session.add(User(username=u, password=hashed))
         db.session.commit()
         return redirect('/login')
-
     return render_template('register.html')
 
 @app.route('/chat')
@@ -76,14 +61,12 @@ def chat():
 def connect():
     if 'username' in session:
         online_users[session['username']] = request.sid
-        emit('online_users', list(online_users.keys()), broadcast=True)
 
 @socketio.on('disconnect')
 def disconnect():
     user = session.get('username')
     if user in online_users:
         del online_users[user]
-        emit('online_users', list(online_users.keys()), broadcast=True)
 
 @socketio.on('send_message')
 def handle_msg(data):
@@ -96,6 +79,7 @@ def handle_msg(data):
     db.session.commit()
 
     payload = {
+        'id': m.id,
         'from': sender,
         'msg': msg,
         'time': datetime.now().strftime('%H:%M')
@@ -105,13 +89,6 @@ def handle_msg(data):
         emit('receive_message', payload, room=online_users[receiver])
 
     emit('receive_message', payload)
-
-@socketio.on('typing')
-def typing(data):
-    if data['to'] in online_users:
-        emit('typing', {'from': session['username']}, room=online_users[data['to']])
-
-# ================= RUN =================
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
