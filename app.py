@@ -1,9 +1,10 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
-from flask_socketio import SocketIO, emit
+from flask_socketio import SocketIO, emit, join_room, leave_room
 from models import db, User, Message, Status, Call
 from datetime import datetime
 import bcrypt
 import json
+import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'whatsapp-clone-secret-key-2024'
@@ -11,9 +12,10 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 online_users = {}
+user_sessions = {}
 
 with app.app_context():
     db.create_all()
@@ -77,6 +79,8 @@ def logout():
             user.is_online = False
             user.last_seen = datetime.now()
             db.session.commit()
+        if session['username'] in online_users:
+            del online_users[session['username']]
     session.clear()
     flash('Logged out', 'success')
     return redirect(url_for('login'))
@@ -115,7 +119,12 @@ def get_contacts():
     for msg in received:
         contact_usernames.add(msg.sender)
     
-    contacts = User.query.filter(User.username.in_(contact_usernames)).all()
+    # Also add users who are online
+    for user in online_users.keys():
+        if user != session['username']:
+            contact_usernames.add(user)
+    
+    contacts = User.query.filter(User.username.in_(contact_usernames)).all() if contact_usernames else []
     return jsonify([{
         'username': c.username,
         'full_name': c.full_name,
@@ -128,8 +137,11 @@ def get_contacts():
 def get_statuses():
     if 'username' not in session:
         return jsonify([])
+    from datetime import timedelta
+    expiry = datetime.now() - timedelta(hours=24)
     statuses = Status.query.filter(
-        Status.expires_at > datetime.now()
+        Status.expires_at > datetime.now(),
+        Status.created_at > expiry
     ).order_by(Status.created_at.desc()).all()
     
     result = []
@@ -152,11 +164,13 @@ def post_status():
     if 'username' not in session:
         return jsonify({'error': 'Unauthorized'})
     data = request.json
+    from datetime import timedelta
     status = Status(
         username=session['username'],
         content=data.get('content', ''),
         content_type=data.get('content_type', 'text'),
-        image_url=data.get('image_url', '')
+        image_url=data.get('image_url', ''),
+        expires_at=datetime.now() + timedelta(hours=24)
     )
     db.session.add(status)
     db.session.commit()
@@ -185,7 +199,7 @@ def get_calls():
     
     result = []
     for c in calls:
-        other = c.caller if c.receiver == session['username'] else c.receiver
+        other = c.caller if c.receiver == session['username'] else c.caller
         result.append({
             'id': c.id,
             'with': other,
@@ -237,36 +251,67 @@ def update_profile():
     db.session.commit()
     return jsonify({'success': True})
 
+@app.route('/api/get_messages/<receiver>')
+def get_messages(receiver):
+    if 'username' not in session:
+        return jsonify([])
+    messages = Message.query.filter(
+        ((Message.sender == session['username']) & (Message.receiver == receiver)) |
+        ((Message.sender == receiver) & (Message.receiver == session['username']))
+    ).order_by(Message.timestamp).all()
+    
+    return jsonify([{
+        'id': m.id,
+        'sender': m.sender,
+        'receiver': m.receiver,
+        'message': m.message,
+        'timestamp': m.timestamp.strftime('%I:%M %p'),
+        'read': m.read,
+        'delivered': m.delivered
+    } for m in messages])
+
 # ========== SOCKET.IO EVENTS ==========
 
 @socketio.on('connect')
 def handle_connect():
     if 'username' in session:
         online_users[session['username']] = request.sid
+        user_sessions[request.sid] = session['username']
         user = User.query.filter_by(username=session['username']).first()
         if user:
             user.is_online = True
             user.last_seen = datetime.now()
             db.session.commit()
-        emit('user_status', {'username': session['username'], 'is_online': True, 'last_seen': 'Online'}, broadcast=True)
+        print(f'✅ {session["username"]} connected')
+        emit('user_status', {'username': session['username'], 'is_online': True}, broadcast=True)
+        # Send online users list to all
+        emit('online_users', list(online_users.keys()), broadcast=True)
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    if 'username' in session:
-        if session['username'] in online_users:
-            del online_users[session['username']]
-        user = User.query.filter_by(username=session['username']).first()
+    sid = request.sid
+    if sid in user_sessions:
+        username = user_sessions[sid]
+        if username in online_users:
+            del online_users[username]
+        user = User.query.filter_by(username=username).first()
         if user:
             user.is_online = False
             user.last_seen = datetime.now()
             db.session.commit()
-        emit('user_status', {'username': session['username'], 'is_online': False, 'last_seen': user.last_seen.strftime('%H:%M') if user else 'offline'}, broadcast=True)
+        print(f'❌ {username} disconnected')
+        emit('user_status', {'username': username, 'is_online': False}, broadcast=True)
+        emit('online_users', list(online_users.keys()), broadcast=True)
+        del user_sessions[sid]
 
 @socketio.on('private_message')
 def handle_private_message(data):
     if 'username' not in session:
         return
     
+    print(f'📨 Message from {session["username"]} to {data["to"]}: {data["message"]}')
+    
+    # Save message to database
     msg = Message(
         sender=session['username'],
         receiver=data['to'],
@@ -275,16 +320,29 @@ def handle_private_message(data):
     )
     db.session.add(msg)
     db.session.commit()
+    
+    # Mark as delivered
     msg.delivered = True
     db.session.commit()
     
+    message_data = {
+        'id': msg.id,
+        'from': session['username'],
+        'message': data['message'],
+        'timestamp': datetime.now().strftime('%I:%M %p'),
+        'message_id': msg.id,
+        'delivered': True
+    }
+    
+    # Send to receiver if online
     if data['to'] in online_users:
-        emit('receive_message', {
-            'from': session['username'],
-            'message': data['message'],
-            'timestamp': datetime.now().strftime('%I:%M %p'),
-            'message_id': msg.id
-        }, room=online_users[data['to']])
+        emit('receive_message', message_data, room=online_users[data['to']])
+        print(f'✅ Message delivered to {data["to"]}')
+    else:
+        print(f'⚠️ {data["to"]} is offline')
+    
+    # Send confirmation to sender
+    emit('message_sent', {'to': data['to'], 'message_id': msg.id})
 
 @socketio.on('mark_read')
 def handle_mark_read(data):
@@ -294,11 +352,13 @@ def handle_mark_read(data):
     for msg in messages:
         msg.read = True
     db.session.commit()
+    print(f'📖 {session["username"]} read messages from {data["from"]}')
+    
     if data['from'] in online_users:
         emit('messages_read', {'from': session['username']}, room=online_users[data['from']])
 
-@socketio.on('typing_start')
-def handle_typing_start(data):
+@socketio.on('typing')
+def handle_typing(data):
     if 'username' in session and data['to'] in online_users:
         emit('user_typing', {'from': session['username']}, room=online_users[data['to']])
 
@@ -311,6 +371,7 @@ def handle_typing_stop(data):
 def handle_get_history(data):
     if 'username' not in session:
         return
+    print(f'📜 Loading history between {session["username"]} and {data["with"]}')
     messages = Message.query.filter(
         ((Message.sender == session['username']) & (Message.receiver == data['with'])) |
         ((Message.sender == data['with']) & (Message.receiver == session['username']))
@@ -319,6 +380,7 @@ def handle_get_history(data):
     history = []
     for msg in messages:
         history.append({
+            'id': msg.id,
             'sender': msg.sender,
             'message': msg.message,
             'timestamp': msg.timestamp.strftime('%I:%M %p'),
@@ -326,6 +388,7 @@ def handle_get_history(data):
             'delivered': msg.delivered
         })
     emit('message_history', history)
+    print(f'📜 Sent {len(history)} messages to {session["username"]}')
 
 @socketio.on('call_answered')
 def handle_call_answered(data):
@@ -343,5 +406,9 @@ def handle_call_end(data):
         emit('call_ended', {'from': session['username']}, room=online_users[data['to']])
 
 if __name__ == '__main__':
-    print("🚀 WhatsApp Clone Running at http://127.0.0.1:5000")
-    socketio.run(app, debug=True, port=5000)
+    print("=" * 50)
+    print("🚀 WHATSAPP CLONE IS RUNNING!")
+    print("📍 Open http://127.0.0.1:5000 in your browser")
+    print("💡 Press CTRL+C to stop the server")
+    print("=" * 50)
+    socketio.run(app, debug=True, port=5000, host='0.0.0.0')
