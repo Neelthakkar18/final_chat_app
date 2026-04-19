@@ -7,7 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 
-    <!-- MAIN CSS -->
+    <!-- CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 
@@ -22,119 +22,97 @@
             <h2>WhatsApp</h2>
         </div>
 
-        <div class="profile">
-            <div class="avatar">{{ username[0]|upper }}</div>
-            <div class="profile-info">
-                <div class="profile-name">{{ username }}</div>
-                <div class="profile-status">Online</div>
-            </div>
-        </div>
-
         <div class="search-bar">
             <div class="search-box">
                 <i class="fas fa-search"></i>
-                <input type="text" id="searchInput" placeholder="Search user">
+                <input id="searchInput" placeholder="Search user">
             </div>
         </div>
 
-        <div class="contacts-list" id="contactsList"></div>
+        <div id="contactsList" class="contacts-list"></div>
 
     </div>
 
-    <!-- CHAT AREA -->
+    <!-- CHAT -->
     <div class="chat-area" id="chatArea">
 
         <div class="chat-header">
             <div class="avatar" id="chatAvatar">👤</div>
-            <div class="chat-contact-info">
-                <div class="chat-contact-name" id="chatName">Select user</div>
-                <div class="chat-contact-status" id="chatStatus">Offline</div>
+            <div>
+                <div id="chatName">Select user</div>
+                <div id="chatStatus">Offline</div>
             </div>
         </div>
 
-        <div class="messages-container" id="messages"></div>
+        <div id="messages" class="messages-container"></div>
 
-        <div class="typing-indicator" id="typingIndicator"></div>
+        <div id="typing" class="typing-indicator"></div>
 
         <div class="input-area">
-            <input id="messageInput" placeholder="Type message">
-            <button class="send-btn" onclick="sendMessage()">
-                <i class="fas fa-paper-plane"></i>
-            </button>
+            <input id="msg" placeholder="Type a message">
+            <button onclick="send()"><i class="fas fa-paper-plane"></i></button>
         </div>
 
     </div>
 
 </div>
 
-<!-- SOCKET -->
 <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
 
 <script>
-let socket = io({
-    transports: ["websocket"],
-    upgrade: false
-});
+let socket = io({ transports:["websocket"], upgrade:false });
 
 let username = document.body.dataset.username;
 let currentUser = null;
 
-// ================= CONNECT =================
-socket.on("connect", () => console.log("✅ Connected"));
+// connect
+socket.on("connect",()=>console.log("connected"));
 
-// ================= RECEIVE =================
-socket.on("receive_message", data => {
-    if (currentUser === data.from) {
-        addMessage(data.from, data.msg, false);
+// receive
+socket.on("receive_message",(d)=>{
+    if(currentUser===d.from){
+        addMsg(d.from,d.msg,false);
     }
 });
 
-// ================= TYPING =================
-socket.on("typing", data => {
-    document.getElementById("typingIndicator").innerText =
-        data.from + " typing...";
-    setTimeout(()=>document.getElementById("typingIndicator").innerText="",1000);
+// typing
+socket.on("typing",(d)=>{
+    document.getElementById("typing").innerText=d.from+" typing...";
+    setTimeout(()=>document.getElementById("typing").innerText="",1000);
 });
 
-// ================= FUNCTIONS =================
-function selectUser(user){
-    currentUser = user;
-    document.getElementById("chatArea").style.display = "flex";
-    document.getElementById("chatName").innerText = user;
+// select user
+function selectUser(u){
+    currentUser=u;
+    document.getElementById("chatArea").style.display="flex";
+    document.getElementById("chatName").innerText=u;
 }
 
-function sendMessage(){
-    let msg = document.getElementById("messageInput").value;
-    if(!msg || !currentUser) return;
+// send
+function send(){
+    let m=document.getElementById("msg").value;
+    if(!m||!currentUser)return;
 
-    addMessage(username, msg, true);
+    addMsg(username,m,true);
 
-    socket.emit("send_message", {
-        msg: msg,
-        to: currentUser
-    });
-
-    document.getElementById("messageInput").value="";
+    socket.emit("send_message",{msg:m,to:currentUser});
+    document.getElementById("msg").value="";
 }
 
-function addMessage(sender, text, sent){
-    let box = document.getElementById("messages");
+// add message
+function addMsg(sender,text,sent){
+    let box=document.getElementById("messages");
 
-    let div = document.createElement("div");
-    div.className = "message " + (sent ? "sent" : "received");
+    let div=document.createElement("div");
+    div.className="message "+(sent?"sent":"received");
 
-    div.innerHTML = `
-        <div class="bubble">
-            <div class="msg-text">${text}</div>
-        </div>
-    `;
-
+    div.innerHTML=`<div class="bubble">${text}</div>`;
     box.appendChild(div);
-    box.scrollTop = box.scrollHeight;
+    box.scrollTop=box.scrollHeight;
 }
 
-// typing
-document.getElementById("messageInput").addEventListener("input", ()=>{
+// typing emit
+document.getElementById("msg").addEventListener("input",()=>{
     if(currentUser){
         socket.emit("typing",{to:currentUser});
     }
