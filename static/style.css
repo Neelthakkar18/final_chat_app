@@ -962,3 +962,22 @@ body {
     0%, 100% { transform: translateY(0) rotate(0deg); }
     50% { transform: translateY(-20px) rotate(10deg); }
 }
+/* smooth hover */
+.contact:hover {
+    transform: scale(1.01);
+}
+
+/* message hover */
+.bubble:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* smooth typing */
+.typing-indicator {
+    animation: fadeIn 0.2s ease;
+}
+
+/* scroll smooth */
+.messages-container {
+    scroll-behavior: smooth;
+}
