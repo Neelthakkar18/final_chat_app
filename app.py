@@ -1,7 +1,7 @@
 import eventlet
 eventlet.monkey_patch()
 
-from flask import Flask, render_template, request, redirect, session
+from flask import Flask, render_template, request, redirect, session, jsonify
 from flask_socketio import SocketIO, emit
 from models import db, User, Message
 from datetime import datetime
@@ -21,11 +21,11 @@ online_users = {}
 with app.app_context():
     db.create_all()
 
+# ================= ROUTES =================
+
 @app.route('/')
 def home():
-    if 'username' in session:
-        return redirect('/chat')
-    return redirect('/login')
+    return redirect('/chat') if 'username' in session else redirect('/login')
 
 @app.route('/login', methods=['GET','POST'])
 def login():
@@ -54,6 +54,10 @@ def chat():
     if 'username' not in session:
         return redirect('/login')
     return render_template('chat.html', username=session['username'])
+
+@app.route('/api/users')
+def users():
+    return jsonify([u.username for u in User.query.all() if u.username != session['username']])
 
 # ================= SOCKET =================
 
@@ -89,6 +93,13 @@ def handle_msg(data):
         emit('receive_message', payload, room=online_users[receiver])
 
     emit('receive_message', payload)
+
+@socketio.on('typing')
+def typing(data):
+    if data['to'] in online_users:
+        emit('typing', {'from': session['username']}, room=online_users[data['to']])
+
+# ================= RUN =================
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
