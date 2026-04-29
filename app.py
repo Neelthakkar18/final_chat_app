@@ -377,6 +377,7 @@ def handle_stop_typing(data):
         'sender_id': current_user.id
     }, room=str(receiver_id))
 
+# ========== IMPORTANT: Database Creation ==========
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
@@ -384,4 +385,4 @@ if __name__ == "__main__":
     
     port = int(os.environ.get("PORT", 8000))
     print(f"🚀 Server starting on http://0.0.0.0:{port}")
-    socketio.run(app, host='0.0.0.0', port=port, debug=True)
+    socketio.run(app, host='0.0.0.0', port=port, debug=False)
